@@ -26,28 +26,34 @@ def main():
             "content": str(args.user_prompt),
         },
     ]
-    response = client.chat.completions.create(
-        model="openrouter/free",
-        messages=messages,
-        tools=available_functions,
-    )
-    if not response.usage or not response.choices[0]:
-        return "Did not recieve response"
-    if args.verbose:
-        print(f"Prompt tokens: {response.usage.prompt_tokens}")
-        print(f"Response tokens: {response.usage.completion_tokens}")
-        print(f"User prompt: {args.user_prompt}")
-    response_message = response.choices[0].message
-    if response_message.tool_calls:
-        for tool_call in response_message.tool_calls:
-            function_args = json.loads(tool_call.function.arguments or "{}")
-            result_message = call_function(tool_call)
-            if not result_message["content"]:
-                raise Exception("No content in function call return")
-            if args.verbose:
-                print(f"-> {result_message['content']}")
-    else:
-        print(response_message.content)
+    for _ in range(20):
+        response = client.chat.completions.create(
+            model="openrouter/free",
+            messages=messages,
+            tools=available_functions,
+        )
+        if not response.usage or not response.choices[0]:
+            return "Did not recieve response"
+        if args.verbose:
+            print(f"Prompt tokens: {response.usage.prompt_tokens}")
+            print(f"Response tokens: {response.usage.completion_tokens}")
+            print(f"User prompt: {args.user_prompt}")
+        response_message = response.choices[0].message
+        messages.append(response_message)
+        if response_message.tool_calls:
+            for tool_call in response_message.tool_calls:
+                function_args = json.loads(tool_call.function.arguments or "{}")
+                result_message = call_function(tool_call)
+                messages.append(result_message)
+                if not result_message["content"]:
+                    raise Exception("No content in function call return")
+                if args.verbose:
+                    print(f"-> {result_message['content']}")
+        else:
+            print(response_message.content)
+            return
+    print("AI looped 20 times, exiting")
+    exit(1)
 
 
 if __name__ == "__main__":
